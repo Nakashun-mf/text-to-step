@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>text-to-step サンプル</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    font-family: system-ui, sans-serif;
+    max-width: 560px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+    line-height: 1.6;
+  }
+  h1 { font-size: 1.25rem; }
+  label { display: block; margin-top: 1rem; font-weight: bold; }
+  input[type="text"], input[type="number"] {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.4rem;
+    margin-top: 0.25rem;
+  }
+  .row { display: flex; gap: 1rem; }
+  .row > div { flex: 1; }
+  button {
+    margin-top: 1.5rem;
+    padding: 0.6rem 1.2rem;
+    font-size: 1rem;
+    cursor: pointer;
+  }
+  #status { margin-top: 1rem; white-space: pre-wrap; }
+  #downloads { margin-top: 1rem; display: none; gap: 0.5rem; }
+  #downloads button { margin-top: 0; }
+</style>
+</head>
+<body>
+  <h1>text-to-step サンプル</h1>
+  <p>TTF/OTF フォントを選択し、テキストを入力して「生成」を押してください。</p>
+
+  <label for="text">テキスト</label>
+  <input type="text" id="text" value="製造AB" />
+
+  <label for="font">フォントファイル (.ttf / .otf)</label>
+  <input type="file" id="font" accept=".ttf,.otf" />
+
+  <div class="row">
+    <div>
+      <label for="fontSize">フォントサイズ (mm)</label>
+      <input type="number" id="fontSize" value="10" min="1" />
+    </div>
+    <div>
+      <label for="depth">押し出し深さ (mm)</label>
+      <input type="number" id="depth" value="3" min="0.1" step="0.1" />
+    </div>
+  </div>
+
+  <label>
+    <input type="checkbox" id="separate" style="width:auto; display:inline-block;" />
+    文字ごとにバラソリッド（separate）
+  </label>
+
+  <button id="generate">生成</button>
+
+  <p id="status"></p>
+
+  <div id="downloads">
+    <button id="downloadStep">STEP をダウンロード</button>
+    <button id="downloadStl">STL をダウンロード</button>
+  </div>
+
+  <script type="module">
+    import { textToCAD } from '../../dist/index.js'
+
+    const statusEl = document.getElementById('status')
+    const downloadsEl = document.getElementById('downloads')
+    const downloadStepBtn = document.getElementById('downloadStep')
+    const downloadStlBtn = document.getElementById('downloadStl')
+
+    let currentResult = null
+
+    document.getElementById('generate').addEventListener('click', async () => {
+      const text = document.getElementById('text').value
+      const fontFile = document.getElementById('font').files[0]
+      const fontSize = Number(document.getElementById('fontSize').value)
+      const depth = Number(document.getElementById('depth').value)
+      const separate = document.getElementById('separate').checked
+
+      if (!fontFile) {
+        statusEl.textContent = 'TTF/OTF フォントを選択してください'
+        return
+      }
+
+      downloadsEl.style.display = 'none'
+      currentResult = null
+      statusEl.textContent = '生成中（初回は WASM ロードのため数秒かかります）...'
+
+      try {
+        const fontBuffer = await fontFile.arrayBuffer()
+        const result = await textToCAD(text, { font: fontBuffer, fontSize, depth, separate })
+        currentResult = result
+        statusEl.textContent =
+          `完了: STEP ${result.step.byteLength.toLocaleString()} bytes / ` +
+          `STL ${result.stl.byteLength.toLocaleString()} bytes`
+        downloadsEl.style.display = 'flex'
+      } catch (e) {
+        console.error(e)
+        statusEl.textContent = `エラー: ${e.message}`
+      }
+    })
+
+    downloadStepBtn.addEventListener('click', () => {
+      currentResult?.downloadStep('output.stp')
+    })
+    downloadStlBtn.addEventListener('click', () => {
+      currentResult?.downloadStl('output.stl')
+    })
+  </script>
+</body>
+</html>

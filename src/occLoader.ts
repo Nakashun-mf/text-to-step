@@ -1,6 +1,6 @@
 import type { OpenCascadeInstance } from 'replicad-opencascadejs'
 
-type OCCFactory = () => Promise<OpenCascadeInstance>
+type OCCFactory = (overrides?: { locateFile?: (path: string) => string }) => Promise<OpenCascadeInstance>
 
 function isNode(): boolean {
   return typeof process !== 'undefined' && !!process.versions?.node
@@ -33,9 +33,18 @@ function unwrapDefault(mod: unknown): OCCFactory {
 // 限定されるが、根本的な解決には upstream の修正が必要。
 export async function initOCC(): Promise<OpenCascadeInstance> {
   if (!isNode()) {
+    // replicad-opencascadejs の glue コードはブラウザ実行時、
+    // document.currentScript.src からアセット(.wasm)の場所を推測するが、
+    // 動的 import() されたモジュールには currentScript が存在しないため
+    // 空文字列にフォールバックし、サイトのルート相対で .wasm を fetch
+    // してしまう（開発サーバの SPA フォールバックが 200 で HTML を返し
+    // "invalid wasm magic number" になる）。バンドラー（Vite/webpack 等）が
+    // 認識する `new URL(specifier, import.meta.url)` パターンで解決した
+    // URL を locateFile 経由で明示的に渡す。
+    const wasmUrl = new URL('replicad-opencascadejs/src/replicad_single.wasm', import.meta.url).href
     const mod = await import('replicad-opencascadejs')
     const factory = unwrapDefault(mod)
-    return factory()
+    return factory({ locateFile: () => wasmUrl })
   }
 
   // node:module / node:path は Node 判定後に動的 import する。
