@@ -1,0 +1,38 @@
+{
+  "name": "text-to-step",
+  "version": "0.1.0",
+  "description": "Convert text (including Japanese/CJK) to extruded 3D STEP/STL solids",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts",
+    "test": "vitest run",
+    "dev": "tsup src/index.ts --format esm,cjs --dts --watch"
+  },
+  "dependencies": {
+    "replicad": "^0.23.1",
+    "replicad-opencascadejs": "^0.23.0"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^2.0.0",
+    "@types/node": "^20.0.0"
+  },
+  "keywords": ["STEP", "STL", "CAD", "3D", "text", "Japanese", "CJK", "kanji", "extrude"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Nakashun-mf/npm_kanji2model.git"
+  }
+}
