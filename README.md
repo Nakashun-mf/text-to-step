@@ -110,7 +110,19 @@ npm test        # vitest でテスト実行（要 test/fonts/NotoSansJP-Regular.
 npm run dev     # tsup --watch
 ```
 
-テストの実行には日本語フォントが必要です。[Noto Sans JP](https://fonts.google.com/noto/specimen/Noto+Sans+JP) の TTF を `test/fonts/NotoSansJP-Regular.ttf` に配置してください（`.gitignore` 済みでリポジトリには含まれません）。
+テストの実行には日本語フォントが必要です。[Noto Sans JP](https://fonts.google.com/noto/specimen/Noto+Sans+JP) の TTF を `test/fonts/NotoSansJP-Regular.ttf` に配置してください（`.gitignore` 済みでリポジトリには含まれません）。CI (`.github/workflows/ci.yml`) は `main` への push / PR のたびに jsDelivr からこのフォントを取得し、Node 18/20/22 で `typecheck` → `build` → `test` を実行します。
+
+## バージョン管理・リリース
+
+[Changesets](https://github.com/changesets/changesets) でバージョンと [CHANGELOG.md](CHANGELOG.md) を管理しています。
+
+1. 変更に対応する changeset を作成する:
+   ```bash
+   npx changeset
+   ```
+   変更内容と `patch` / `minor` / `major` を選び、PR に含めてコミットする。
+2. `main` に changeset がマージされると、`.github/workflows/release.yml` が自動的に `package.json` のバージョンと `CHANGELOG.md` を更新する "Version Packages" PR を作成/更新する（npm publish は行わない）。
+3. その PR をマージしたら、手動で `npm run release`（ビルド + `changeset publish`）を実行して npm に公開する。
 
 ## 既知の制約
 

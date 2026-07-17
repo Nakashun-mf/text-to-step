@@ -20,13 +20,18 @@
     "build": "tsup src/index.ts --format esm,cjs --dts",
     "test": "vitest run",
     "dev": "tsup src/index.ts --format esm,cjs --dts --watch",
-    "example": "vite examples/browser"
+    "example": "vite examples/browser",
+    "typecheck": "tsc --noEmit",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "npm run build && changeset publish"
   },
   "dependencies": {
     "replicad": "^0.23.1",
     "replicad-opencascadejs": "^0.23.0"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.31.1",
     "@types/node": "^20.0.0",
     "tsup": "^8.0.0",
     "typescript": "^5.0.0",
@@ -47,6 +52,6 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Nakashun-mf/npm_kanji2model.git"
+    "url": "git+https://github.com/Nakashun-mf/text-to-step.git"
   }
 }
