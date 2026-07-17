@@ -370,6 +370,10 @@
       controls.dampingFactor = 0.08
       controls.autoRotate = true
       controls.autoRotateSpeed = 1.2
+      // ユーザーがドラッグ/ホイール操作を始めたら自動回転をやめる（'start' はその操作開始で発火）
+      controls.addEventListener('start', () => {
+        controls.autoRotate = false
+      })
 
       window.addEventListener('resize', resizeViewer)
 
