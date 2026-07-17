@@ -3,114 +3,357 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>text-to-step サンプル</title>
+<title>テキストから CAD ファイルへ — text-to-step</title>
 <style>
-  :root { color-scheme: light dark; }
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap');
+
+  /* ============================================================
+     a-ef design tokens（colors_and_type.css より抜粋・簡略化）
+     ============================================================ */
+  :root {
+    --paper: #FBFBF9; --paper-2: #F4F4F0;
+    --surface: #FFFFFF; --surface-2: #F8F8F5;
+    --ink: #15171A; --ink-2: #565C63; --ink-3: #878D95; --ink-4: #B4B9BF;
+    --line: #E5E6E1; --line-2: #D6D8D2; --line-strong: #C2C5BE;
+    --signal: #0E9E6B; --signal-ink: #0A7C53; --signal-bright: #16B97E;
+    --signal-wash: #E7F5EE; --signal-line: #BCE3D2;
+    --danger: #D1473B; --danger-wash: #FBE9E7; --danger-line: #F2C4BE;
+    --focus-ring: 0 0 0 3px rgba(14, 158, 107, 0.28);
+    --font-sans: "IBM Plex Sans JP", "IBM Plex Sans", system-ui, -apple-system, "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --r-md: 7px; --r-lg: 10px; --r-pill: 999px;
+    --sh-1: 0 1px 2px rgba(21,23,26,.05);
+    --sh-2: 0 2px 4px rgba(21,23,26,.06), 0 1px 2px rgba(21,23,26,.04);
+    --dur: 170ms; --ease: cubic-bezier(0.22,0.61,0.36,1);
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #0D0F11; --paper-2: #070809;
+      --surface: #1E2329; --surface-2: #282E35;
+      --ink: #ECEDEA; --ink-2: #A7ADB4; --ink-3: #767C84; --ink-4: #4C5158;
+      --line: #313841; --line-2: #3D444C; --line-strong: #4E555D;
+      --signal: #18B87E; --signal-ink: #52D2A2; --signal-bright: #2BCB8F;
+      --signal-wash: #0F2A22; --signal-line: #1F4E3C;
+      --danger: #E36A5E; --danger-wash: #321613; --danger-line: #5C2922;
+      --focus-ring: 0 0 0 3px rgba(24,184,126,.34);
+      --sh-1: 0 1px 2px rgba(0,0,0,.40);
+      --sh-2: 0 2px 4px rgba(0,0,0,.46), 0 1px 2px rgba(0,0,0,.32);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
   body {
-    font-family: system-ui, sans-serif;
-    max-width: 560px;
-    margin: 2rem auto;
-    padding: 0 1rem;
-    line-height: 1.6;
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.65;
+    color: var(--ink);
+    background:
+      radial-gradient(var(--line) 1px, transparent 1px) 0 0/14px 14px,
+      var(--paper);
+    -webkit-font-smoothing: antialiased;
   }
-  h1 { font-size: 1.25rem; }
-  label { display: block; margin-top: 1rem; font-weight: bold; }
-  input[type="text"], input[type="number"] {
-    width: 100%;
-    box-sizing: border-box;
-    padding: 0.4rem;
-    margin-top: 0.25rem;
+  .page { max-width: 640px; margin: 0 auto; padding: 48px 20px 80px; }
+
+  .mono-label {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+    letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3);
   }
-  .row { display: flex; gap: 1rem; }
-  .row > div { flex: 1; }
-  button {
-    margin-top: 1.5rem;
-    padding: 0.6rem 1.2rem;
-    font-size: 1rem;
-    cursor: pointer;
+  .tool-code {
+    font-family: var(--font-mono); font-size: 12px; font-weight: 500;
+    color: var(--ink-3);
   }
-  #status { margin-top: 1rem; white-space: pre-wrap; }
-  #downloads { margin-top: 1rem; display: none; gap: 0.5rem; }
-  #downloads button { margin-top: 0; }
+
+  .tool-header { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 6px; }
+  .ic {
+    width: 40px; height: 40px; flex: none; border-radius: var(--r-md);
+    background: var(--signal-wash); color: var(--signal-ink);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .ic svg { width: 21px; height: 21px; }
+  .tool-header h1 {
+    margin: 0; font-size: 23px; font-weight: 700; letter-spacing: -.01em;
+  }
+
+  .lead { color: var(--ink-2); margin: 12px 0 28px; max-width: 52ch; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--r-lg); box-shadow: var(--sh-1);
+    padding: 24px;
+  }
+
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field + .field { margin-top: 16px; }
+  .field-row { display: flex; align-items: center; gap: 6px; }
+  .field label { font-size: 13px; font-weight: 600; color: var(--ink); }
+
+  /* ヘルプアイコン + ホバー/フォーカスで出るツールチップ（JS不要） */
+  .help-wrap { position: relative; display: inline-flex; }
+  .help {
+    width: 16px; height: 16px; border-radius: var(--r-pill);
+    border: 1px solid var(--line-2); background: var(--surface); color: var(--ink-3);
+    font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: help;
+  }
+  .help:hover, .help:focus-visible { border-color: var(--signal-line); color: var(--signal-ink); background: var(--signal-wash); }
+  .help-tip {
+    position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%);
+    width: max-content; max-width: 220px;
+    background: #23282E; color: #ECEDEA; border: 1px solid rgba(255,255,255,.08);
+    font-size: 12px; font-weight: 500; line-height: 1.5;
+    padding: 6px 9px; border-radius: 5px; box-shadow: var(--sh-2);
+    opacity: 0; pointer-events: none; transition: opacity var(--dur) var(--ease);
+    z-index: 2;
+  }
+  .help-tip::after {
+    content: ""; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+    border: 5px solid transparent; border-top-color: #23282E;
+  }
+  .help-wrap:hover .help-tip, .help:focus-visible + .help-tip { opacity: 1; }
+
+  input[type="text"], input[type="number"], input[type="file"] {
+    font-family: var(--font-sans); font-size: 14px; color: var(--ink);
+    background: var(--surface); border: 1px solid var(--line-2);
+    border-radius: var(--r-md); padding: 9px 12px; width: 100%;
+    outline: none; transition: border-color var(--dur), box-shadow var(--dur);
+  }
+  input[type="file"] { padding: 7px 10px; font-size: 13px; color: var(--ink-2); }
+  input:focus-visible { border-color: var(--signal); box-shadow: var(--focus-ring); }
+  .hint { font-size: 12.5px; color: var(--ink-3); }
+
+  .row { display: flex; gap: 16px; }
+  .row > .field { flex: 1; }
+
+  .checkbox-row { display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
+  .checkbox-row input { width: 16px; height: 16px; accent-color: var(--signal); cursor: pointer; }
+
+  details.advanced { margin-top: 20px; border-top: 1px solid var(--line); padding-top: 16px; }
+  details.advanced summary {
+    cursor: pointer; font-size: 13px; font-weight: 600; color: var(--ink-2);
+    display: flex; align-items: center; gap: 6px; list-style: none;
+  }
+  details.advanced summary::-webkit-details-marker { display: none; }
+  details.advanced summary::before {
+    content: "›"; display: inline-block; transition: transform var(--dur) var(--ease);
+    font-size: 16px; line-height: 1;
+  }
+  details.advanced[open] summary::before { transform: rotate(90deg); }
+  details.advanced .advanced-body { padding-top: 16px; }
+
+  .btn {
+    font-family: var(--font-sans); font-weight: 600; font-size: 15px; line-height: 1;
+    padding: 12px 20px; border-radius: var(--r-md); border: 1px solid transparent;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
+    transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), transform 120ms var(--ease);
+  }
+  .btn:active { transform: translateY(1px); }
+  .btn svg { width: 16px; height: 16px; }
+  .btn-primary { background: var(--signal); color: #fff; width: 100%; justify-content: center; margin-top: 24px; }
+  .btn-primary:hover { background: var(--signal-bright); }
+  .btn-primary:disabled { opacity: .5; pointer-events: none; }
+  .btn-secondary {
+    background: var(--surface); color: var(--ink); border-color: var(--line-2);
+    font-size: 13px; padding: 8px 14px;
+  }
+  .btn-secondary:hover { border-color: var(--line-strong); background: var(--surface-2); }
+
+  .alert {
+    display: flex; gap: 11px; align-items: flex-start;
+    padding: 12px 14px; border-radius: var(--r-md); border: 1px solid;
+    margin-top: 20px; font-size: 14px;
+  }
+  .alert svg { width: 18px; height: 18px; flex: none; margin-top: 1px; }
+  .alert.success { background: var(--signal-wash); border-color: var(--signal-line); color: var(--signal-ink); }
+  .alert.error { background: var(--danger-wash); border-color: var(--danger-line); color: var(--danger); }
+  .alert .alert-title { font-weight: 600; }
+  .alert .alert-detail { display: block; margin-top: 2px; font-size: 12.5px; opacity: .85; }
+
+  .badge {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: .04em;
+    padding: 3px 8px; border-radius: var(--r-pill);
+    background: var(--surface); border: 1px solid var(--line-2); color: var(--ink-2);
+  }
+
+  .downloads { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+
+  footer { margin-top: 28px; text-align: center; }
+  footer a { color: var(--ink-3); font-size: 12.5px; text-decoration: none; }
+  footer a:hover { color: var(--signal-ink); }
 </style>
 </head>
 <body>
-  <h1>text-to-step サンプル</h1>
-  <p>テキストを入力して「生成」を押してください。フォントファイルは省略可能です（省略時は CDN からデフォルトフォント Noto Sans JP を取得します）。</p>
-
-  <label for="text">テキスト</label>
-  <input type="text" id="text" value="製造AB" />
-
-  <label for="font">フォントファイル (.ttf / .otf、省略可)</label>
-  <input type="file" id="font" accept=".ttf,.otf" />
-
-  <div class="row">
-    <div>
-      <label for="fontSize">フォントサイズ (mm)</label>
-      <input type="number" id="fontSize" value="10" min="1" />
+  <div class="page">
+    <span class="mono-label">CAD UTILITY</span>
+    <div class="tool-header" style="margin-top: 6px">
+      <div class="ic">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/>
+          <path d="m3.3 7 8.7 5 8.7-5M12 22V12"/>
+        </svg>
+      </div>
+      <div>
+        <h1>テキストから CAD ファイルへ</h1>
+        <span class="tool-code">CAD-101</span>
+      </div>
     </div>
-    <div>
-      <label for="depth">押し出し深さ (mm)</label>
-      <input type="number" id="depth" value="3" min="0.1" step="0.1" />
+
+    <p class="lead">日本語を含むテキストを、押し出しソリッドの STEP / STL ファイルに変換します。フォントは自動で用意されるので、そのまま生成できます。</p>
+
+    <div class="card">
+      <div class="field">
+        <label for="text">テキスト</label>
+        <input type="text" id="text" value="製造AB" />
+      </div>
+
+      <details class="advanced">
+        <summary>詳細設定（フォント・サイズ・分割）</summary>
+        <div class="advanced-body">
+          <div class="field">
+            <div class="field-row">
+              <label for="font">フォントファイル</label>
+              <span class="help-wrap">
+                <span class="help" tabindex="0">?</span>
+                <span class="help-tip">省略時は Noto Sans JP が CDN から自動取得されます</span>
+              </span>
+            </div>
+            <input type="file" id="font" accept=".ttf,.otf" />
+            <span class="hint">.ttf / .otf、省略可</span>
+          </div>
+
+          <div class="row">
+            <div class="field">
+              <div class="field-row">
+                <label for="fontSize">フォントサイズ</label>
+                <span class="help-wrap">
+                  <span class="help" tabindex="0">?</span>
+                  <span class="help-tip">文字の高さ（mm）</span>
+                </span>
+              </div>
+              <input type="number" id="fontSize" value="10" min="1" />
+            </div>
+            <div class="field">
+              <div class="field-row">
+                <label for="depth">押し出し深さ</label>
+                <span class="help-wrap">
+                  <span class="help" tabindex="0">?</span>
+                  <span class="help-tip">立体にする厚み（mm）</span>
+                </span>
+              </div>
+              <input type="number" id="depth" value="3" min="0.1" step="0.1" />
+            </div>
+          </div>
+
+          <div class="field" style="margin-top: 16px">
+            <label class="checkbox-row">
+              <input type="checkbox" id="separate" />
+              文字ごとに分割する
+              <span class="help-wrap">
+                <span class="help" tabindex="0">?</span>
+                <span class="help-tip">1文字ずつ独立したパーツとして出力します（STEP はアセンブリ）</span>
+              </span>
+            </label>
+          </div>
+        </div>
+      </details>
+
+      <button id="generate" class="btn btn-primary">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16 2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143z"/></svg>
+        生成する
+      </button>
+
+      <div id="result"></div>
     </div>
-  </div>
 
-  <label>
-    <input type="checkbox" id="separate" style="width:auto; display:inline-block;" />
-    文字ごとにバラソリッド（separate）
-  </label>
-
-  <button id="generate">生成</button>
-
-  <p id="status"></p>
-
-  <div id="downloads">
-    <button id="downloadStep">STEP をダウンロード</button>
-    <button id="downloadStl">STL をダウンロード</button>
+    <footer>
+      <a href="https://github.com/Nakashun-mf/text-to-step" target="_blank" rel="noopener">text-to-step on GitHub</a>
+    </footer>
   </div>
 
   <script type="module">
     import { textToCAD } from '../../dist/index.js'
 
-    const statusEl = document.getElementById('status')
-    const downloadsEl = document.getElementById('downloads')
-    const downloadStepBtn = document.getElementById('downloadStep')
-    const downloadStlBtn = document.getElementById('downloadStl')
+    const resultEl = document.getElementById('result')
+    const generateBtn = document.getElementById('generate')
 
     let currentResult = null
 
-    document.getElementById('generate').addEventListener('click', async () => {
+    function renderIdle() {
+      resultEl.innerHTML = ''
+    }
+
+    function renderLoading(hasFont) {
+      resultEl.innerHTML = `
+        <div class="alert" style="color: var(--ink-2); background: var(--surface-2); border-color: var(--line)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+          <div>
+            <span class="alert-title">生成中です…</span>
+            <span class="alert-detail">${hasFont ? '初回は WASM の読み込みに数秒かかります' : '初回は WASM の読み込みとデフォルトフォントの取得に時間がかかります'}</span>
+          </div>
+        </div>`
+    }
+
+    function renderSuccess(result) {
+      currentResult = result
+      resultEl.innerHTML = `
+        <div class="alert success">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m22 4-10 10-3-3"/></svg>
+          <div>
+            <span class="alert-title">生成が完了しました</span>
+            <span class="alert-detail">
+              <span class="badge">STEP ${result.step.byteLength.toLocaleString()} bytes</span>
+              &nbsp;<span class="badge">STL ${result.stl.byteLength.toLocaleString()} bytes</span>
+            </span>
+          </div>
+        </div>
+        <div class="downloads">
+          <button id="downloadStep" class="btn btn-secondary">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            STEP をダウンロード
+          </button>
+          <button id="downloadStl" class="btn btn-secondary">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            STL をダウンロード
+          </button>
+        </div>`
+      document.getElementById('downloadStep').addEventListener('click', () => currentResult?.downloadStep('output.stp'))
+      document.getElementById('downloadStl').addEventListener('click', () => currentResult?.downloadStl('output.stl'))
+    }
+
+    function renderError(message) {
+      resultEl.innerHTML = `
+        <div class="alert error">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+          <div>
+            <span class="alert-title">生成できませんでした</span>
+            <span class="alert-detail">${message}</span>
+          </div>
+        </div>`
+    }
+
+    generateBtn.addEventListener('click', async () => {
       const text = document.getElementById('text').value
       const fontFile = document.getElementById('font').files[0]
       const fontSize = Number(document.getElementById('fontSize').value)
       const depth = Number(document.getElementById('depth').value)
       const separate = document.getElementById('separate').checked
 
-      downloadsEl.style.display = 'none'
       currentResult = null
-      statusEl.textContent = fontFile
-        ? '生成中（初回は WASM ロードのため数秒かかります）...'
-        : '生成中（初回は WASM ロードとデフォルトフォントのダウンロードのため時間がかかります）...'
+      generateBtn.disabled = true
+      renderLoading(Boolean(fontFile))
 
       try {
         const font = fontFile ? await fontFile.arrayBuffer() : undefined
         const result = await textToCAD(text, { font, fontSize, depth, separate })
-        currentResult = result
-        statusEl.textContent =
-          `完了: STEP ${result.step.byteLength.toLocaleString()} bytes / ` +
-          `STL ${result.stl.byteLength.toLocaleString()} bytes`
-        downloadsEl.style.display = 'flex'
+        renderSuccess(result)
       } catch (e) {
         console.error(e)
-        statusEl.textContent = `エラー: ${e.message}`
+        renderError(e.message)
+      } finally {
+        generateBtn.disabled = false
       }
-    })
-
-    downloadStepBtn.addEventListener('click', () => {
-      currentResult?.downloadStep('output.stp')
-    })
-    downloadStlBtn.addEventListener('click', () => {
-      currentResult?.downloadStl('output.stl')
     })
   </script>
 </body>
