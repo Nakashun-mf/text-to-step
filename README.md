@@ -16,6 +16,11 @@
 npm install text-to-step
 ```
 
+### 動作環境
+
+- **Node.js 18 以上**が必要です（`engines.node` で指定）。`font` 省略時のデフォルトフォント取得にグローバルの `fetch` API を使用しており、これが Node 18 以降でのみ利用可能なためです。CI で Node 18 / 20 / 22 での動作を確認しています。
+- ブラウザは `fetch` / `WebAssembly` / ES Modules（動的 `import()`）に対応したモダンブラウザが対象です。
+
 ## クイックスタート
 
 ### Node.js

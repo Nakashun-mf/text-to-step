@@ -53,5 +53,8 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Nakashun-mf/text-to-step.git"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }
