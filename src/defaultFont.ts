@@ -7,9 +7,12 @@ const DEFAULT_FONT_URL =
 
 let cachedFontPromise: Promise<ArrayBuffer> | null = null
 
+const FETCH_TIMEOUT_MS = 20_000
+
 export function loadDefaultFont(): Promise<ArrayBuffer> {
   if (!cachedFontPromise) {
-    cachedFontPromise = fetch(DEFAULT_FONT_URL)
+    // ネットワークが詰まった場合に無期限にハングしないようタイムアウトを設ける
+    cachedFontPromise = fetch(DEFAULT_FONT_URL, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) })
       .then((res) => {
         if (!res.ok) {
           throw new Error(
@@ -21,6 +24,12 @@ export function loadDefaultFont(): Promise<ArrayBuffer> {
       })
       .catch((err) => {
         cachedFontPromise = null // 失敗時は次回呼び出しで再試行できるようにする
+        if (err instanceof Error && err.name === 'TimeoutError') {
+          throw new Error(
+            `Timed out fetching default font after ${FETCH_TIMEOUT_MS}ms. ` +
+              'Pass `font` explicitly to avoid relying on network access.',
+          )
+        }
         throw err
       })
   }

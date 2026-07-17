@@ -56,6 +56,11 @@
     "type": "git",
     "url": "git+https://github.com/Nakashun-mf/text-to-step.git"
   },
+  "homepage": "https://nakashun-mf.github.io/text-to-step/",
+  "bugs": {
+    "url": "https://github.com/Nakashun-mf/text-to-step/issues"
+  },
+  "sideEffects": false,
   "engines": {
     "node": ">=18"
   }

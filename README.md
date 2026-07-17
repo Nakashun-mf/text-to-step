@@ -47,7 +47,6 @@ writeFileSync('./output.stl', Buffer.from(result.stl))
 
 ```html
 <input type="text" id="text" value="製造" />
-<input type="file" id="font" accept=".ttf,.otf" />
 <button id="generate">STEP 生成</button>
 
 <script type="module">
@@ -55,11 +54,8 @@ writeFileSync('./output.stl', Buffer.from(result.stl))
 
   document.getElementById('generate').addEventListener('click', async () => {
     const text = document.getElementById('text').value
-    const file = document.getElementById('font').files[0]
-    if (!file) return alert('TTF フォントを選択してください')
-
-    const fontBuffer = await file.arrayBuffer()
-    const result = await textToCAD(text, { font: fontBuffer, depth: 3 })
+    // font を省略するとデフォルトフォント（Noto Sans JP）が自動取得される
+    const result = await textToCAD(text, { depth: 3 })
 
     result.downloadStep('output.stp')
     result.downloadStl('output.stl')
