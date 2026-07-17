@@ -21,6 +21,8 @@
     "test": "vitest run",
     "dev": "tsup src/index.ts --format esm,cjs --dts --watch",
     "example": "vite examples/browser",
+    "build:pages": "npm run build && vite build examples/browser",
+    "preview:pages": "vite preview examples/browser --outDir ../../gh-pages-dist --port 4173",
     "typecheck": "tsc --noEmit",
     "changeset": "changeset",
     "version": "changeset version",

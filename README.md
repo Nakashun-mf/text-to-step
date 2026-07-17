@@ -2,6 +2,8 @@
 
 日本語（漢字・ひらがな・カタカナ）・英数字・記号を含む任意のテキストから、押し出しソリッドの **STEP (.stp)** および **STL (.stl)** ファイルを生成する npm パッケージです。[replicad](https://replicad.xyz/)（OpenCascade の WASM ビルド）を利用しており、Node.js・ブラウザの両方で動作します。
 
+**[🔗 ライブデモを試す](https://nakashun-mf.github.io/text-to-step/)** — インストール不要でブラウザから動作を確認できます。
+
 ## 特徴
 
 - 漢字・ひらがな・カタカナを含む CJK テキストに対応
@@ -97,7 +99,9 @@ writeFileSync('./output.stl', Buffer.from(result.stl))
 
 ## サンプルアプリ
 
-ブラウザで動作を確認できるデモが [`examples/browser`](examples/browser) にあります。
+ブラウザで動作を確認できるデモが [`examples/browser`](examples/browser) にあります。**[https://nakashun-mf.github.io/text-to-step/](https://nakashun-mf.github.io/text-to-step/) で公開中**（`main` への push ごとに `.github/workflows/pages.yml` が自動デプロイ）。
+
+ローカルで動かす場合:
 
 ```bash
 npm run build     # dist/ をビルド（デモは dist/index.js を直接 import します）

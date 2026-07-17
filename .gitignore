@@ -5,3 +5,4 @@ dist/
 test/fonts/*.ttf
 test/fonts/*.otf
 .scratch/
+gh-pages-dist/
