@@ -19,18 +19,20 @@ function unwrapDefault(mod: unknown): OCCFactory {
 // されるが、内部コードは CJS 専用グローバル（__dirname, require）に
 // 無条件で依存しており、バンドラーを介さない素の Node.js 実行では
 // `ReferenceError: __dirname is not defined` で必ず失敗する（既知の
-// upstream バグ）。また Node の require(esm) 合成により
-// `{ __esModule, default }` 形のオブジェクトが返るため、esbuild が
-// 静的 import に対して行う CJS 相互運用変換（__toESM）を通すと二重に
-// ラップされて `.default` が関数でなくなる。そのため import ではなく
-// 実行時に動的解決し、globalThis へ __dirname/require を一時的に
-// 補ってから呼び出す。
+// upstream バグ）。モジュール自体は（CJS ビルドからでも）動的 import()
+// で読み込む。require() で読み込むと、Node の require(esm) 合成に
+// 対応していない Node バージョン（v22.12 未満）で
+// `SyntaxError: Unexpected token 'export'` になるほか、esbuild が
+// 静的 import に対して行う CJS 相互運用変換（__toESM）を通すと
+// `{ __esModule, default }` が二重にラップされて `.default` が関数で
+// なくなる問題もある。import() なら常に本物の ESM ローダーを通るため
+// どちらの問題も避けられる。
 //
-// 補完している間（factory() の await 完了まで）は同一プロセス内の他の
-// コードが globalThis.require/__dirname を参照すると、この glue ファイル
-// 用の値を観測してしまう可能性がある。ensureOCC 側でプロセスにつき一度
-// だけ実行されるようメモ化しているためウィンドウは初回呼び出し時のみに
-// 限定されるが、根本的な解決には upstream の修正が必要。
+// globalThis.__dirname/require の補完（下記）は同一プロセス内の他の
+// コードが factory() の await 完了までの間に参照すると、この glue
+// ファイル用の値を観測してしまう可能性がある。ensureOCC 側でプロセス
+// につき一度だけ実行されるようメモ化しているためウィンドウは初回呼び
+// 出し時のみに限定されるが、根本的な解決には upstream の修正が必要。
 export async function initOCC(): Promise<OpenCascadeInstance> {
   if (!isNode()) {
     // replicad-opencascadejs の glue コードはブラウザ実行時、
@@ -75,7 +77,7 @@ export async function initOCC(): Promise<OpenCascadeInstance> {
   g.require = nodeRequire
 
   try {
-    const mod = nodeRequire('replicad-opencascadejs')
+    const mod = await import('replicad-opencascadejs')
     const factory = unwrapDefault(mod)
     return await factory()
   } finally {
