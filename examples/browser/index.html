@@ -206,6 +206,16 @@
 
   .downloads { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
 
+  .viewer-wrap { margin-top: 20px; }
+  .viewer-wrap .mono-label { display: block; margin-bottom: 8px; }
+  .viewer {
+    height: 320px; border-radius: var(--r-md); border: 1px solid var(--line);
+    background: var(--surface-2); overflow: hidden; position: relative;
+    cursor: grab;
+  }
+  .viewer:active { cursor: grabbing; }
+  .viewer canvas { display: block; width: 100%; height: 100%; }
+
   footer { margin-top: 28px; text-align: center; }
   footer a { color: var(--ink-3); font-size: 12.5px; text-decoration: none; }
   footer a:hover { color: var(--signal-ink); }
@@ -291,7 +301,23 @@
         生成する
       </button>
 
-      <div id="result"></div>
+      <div id="status"></div>
+
+      <div id="viewer-wrap" class="viewer-wrap" hidden>
+        <span class="mono-label">プレビュー（ドラッグで回転・スクロールでズーム）</span>
+        <div id="viewer" class="viewer"></div>
+      </div>
+
+      <div id="downloads" class="downloads" hidden>
+        <button id="downloadStep" class="btn btn-secondary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          STEP をダウンロード
+        </button>
+        <button id="downloadStl" class="btn btn-secondary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          STL をダウンロード
+        </button>
+      </div>
     </div>
 
     <footer>
@@ -301,18 +327,110 @@
 
   <script type="module">
     import { textToCAD } from '../../dist/index.js'
+    import * as THREE from 'three'
+    import { STLLoader } from 'three/addons/loaders/STLLoader.js'
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 
-    const resultEl = document.getElementById('result')
+    const statusEl = document.getElementById('status')
+    const viewerWrapEl = document.getElementById('viewer-wrap')
+    const viewerEl = document.getElementById('viewer')
+    const downloadsEl = document.getElementById('downloads')
     const generateBtn = document.getElementById('generate')
 
     let currentResult = null
 
-    function renderIdle() {
-      resultEl.innerHTML = ''
+    // ---- 3D プレビュー（生成済み STL をそのまま three.js に読み込む） ----
+    let renderer, scene, camera, controls, mesh
+
+    function isDarkMode() {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches
     }
 
+    function initViewer() {
+      if (renderer) return
+      const { clientWidth: width, clientHeight: height } = viewerEl
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+      renderer.setSize(width, height)
+      viewerEl.appendChild(renderer.domElement)
+
+      scene = new THREE.Scene()
+      camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 10000)
+
+      scene.add(new THREE.AmbientLight(0xffffff, 0.7))
+      const key = new THREE.DirectionalLight(0xffffff, 0.9)
+      key.position.set(1, 2, 3)
+      const fill = new THREE.DirectionalLight(0xffffff, 0.35)
+      fill.position.set(-2, -1, -2)
+      scene.add(key, fill)
+
+      controls = new OrbitControls(camera, renderer.domElement)
+      controls.enableDamping = true
+      controls.dampingFactor = 0.08
+      controls.autoRotate = true
+      controls.autoRotateSpeed = 1.2
+
+      window.addEventListener('resize', resizeViewer)
+
+      const animate = () => {
+        requestAnimationFrame(animate)
+        controls.update()
+        renderer.render(scene, camera)
+      }
+      animate()
+    }
+
+    function resizeViewer() {
+      if (!renderer || !viewerEl.clientWidth) return
+      const { clientWidth: width, clientHeight: height } = viewerEl
+      renderer.setSize(width, height)
+      camera.aspect = width / height
+      camera.updateProjectionMatrix()
+    }
+
+    function showModelPreview(stlArrayBuffer) {
+      viewerWrapEl.hidden = false
+      initViewer()
+      resizeViewer()
+
+      if (mesh) {
+        scene.remove(mesh)
+        mesh.geometry.dispose()
+        mesh.material.dispose()
+      }
+
+      const geometry = new STLLoader().parse(stlArrayBuffer)
+      geometry.computeVertexNormals()
+      geometry.center()
+
+      mesh = new THREE.Mesh(
+        geometry,
+        new THREE.MeshStandardMaterial({
+          color: isDarkMode() ? 0x2bcb8f : 0x0e9e6b,
+          roughness: 0.55,
+          metalness: 0.05,
+        }),
+      )
+      scene.add(mesh)
+
+      // バウンディングスフィアに収まるようカメラ距離を計算してフィットさせる
+      geometry.computeBoundingSphere()
+      const radius = Math.max(geometry.boundingSphere.radius, 0.01)
+      const dist = (radius / Math.sin((camera.fov / 2) * (Math.PI / 180))) * 1.4
+      camera.position.set(dist * 0.55, dist * 0.45, dist * 0.7)
+      camera.near = dist / 100
+      camera.far = dist * 20
+      camera.updateProjectionMatrix()
+      controls.target.set(0, 0, 0)
+      controls.update()
+    }
+
+    // ---- 生成フロー ----
     function renderLoading(hasFont) {
-      resultEl.innerHTML = `
+      viewerWrapEl.hidden = true
+      downloadsEl.hidden = true
+      statusEl.innerHTML = `
         <div class="alert" style="color: var(--ink-2); background: var(--surface-2); border-color: var(--line)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
           <div>
@@ -324,7 +442,7 @@
 
     function renderSuccess(result) {
       currentResult = result
-      resultEl.innerHTML = `
+      statusEl.innerHTML = `
         <div class="alert success">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m22 4-10 10-3-3"/></svg>
           <div>
@@ -334,23 +452,15 @@
               &nbsp;<span class="badge">STL ${result.stl.byteLength.toLocaleString()} bytes</span>
             </span>
           </div>
-        </div>
-        <div class="downloads">
-          <button id="downloadStep" class="btn btn-secondary">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-            STEP をダウンロード
-          </button>
-          <button id="downloadStl" class="btn btn-secondary">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-            STL をダウンロード
-          </button>
         </div>`
-      document.getElementById('downloadStep').addEventListener('click', () => currentResult?.downloadStep('output.stp'))
-      document.getElementById('downloadStl').addEventListener('click', () => currentResult?.downloadStl('output.stl'))
+      showModelPreview(result.stl)
+      downloadsEl.hidden = false
     }
 
     function renderError(message) {
-      resultEl.innerHTML = `
+      viewerWrapEl.hidden = true
+      downloadsEl.hidden = true
+      statusEl.innerHTML = `
         <div class="alert error">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
           <div>
@@ -359,6 +469,9 @@
           </div>
         </div>`
     }
+
+    document.getElementById('downloadStep').addEventListener('click', () => currentResult?.downloadStep('output.stp'))
+    document.getElementById('downloadStl').addEventListener('click', () => currentResult?.downloadStl('output.stl'))
 
     generateBtn.addEventListener('click', async () => {
       const text = document.getElementById('text').value
