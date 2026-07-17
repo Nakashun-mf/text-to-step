@@ -1,5 +1,12 @@
 # text-to-step
 
+## 0.1.1
+
+### Patch Changes
+
+- e3912bf: Add a 20s timeout to the default-font CDN fetch (`defaultFont.ts`) so `textToCAD()` fails with a clear error instead of hanging indefinitely when the network is unreachable or the CDN doesn't respond.
+- fecff89: Fix `SyntaxError: Unexpected token 'export'` when running on Node.js versions without `require(esm)` support (< 22.12), and a possible `esbuild` CJS interop double-wrap. The internal OpenCascade loader now loads `replicad-opencascadejs` via dynamic `import()` on all Node versions instead of `require()`, so it always goes through the real ESM loader.
+
 ## 0.1.0
 
 ### Added

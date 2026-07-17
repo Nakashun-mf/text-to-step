@@ -1,6 +1,6 @@
 {
   "name": "text-to-step",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Convert text (including Japanese/CJK) to extruded 3D STEP/STL solids",
   "type": "module",
   "main": "./dist/index.cjs",
