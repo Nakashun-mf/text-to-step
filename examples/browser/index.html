@@ -81,7 +81,21 @@
       var(--paper);
     -webkit-font-smoothing: antialiased;
   }
-  .page { max-width: 640px; margin: 0 auto; padding: 48px 20px 80px; }
+  .page { max-width: 640px; margin: 0 auto; padding: 48px 20px 80px; transition: max-width 320ms var(--ease); }
+  .page.wide { max-width: 1040px; }
+
+  .workspace { display: grid; grid-template-columns: 1fr; gap: 20px; align-items: start; }
+  .workspace.two-col { grid-template-columns: minmax(300px, 420px) 1fr; }
+  @media (max-width: 760px) {
+    .workspace.two-col { grid-template-columns: 1fr; }
+  }
+  .result-panel { display: flex; flex-direction: column; }
+
+  /* display:flex 等を持つクラスと hidden 属性が同じ要素に付くと、
+     hidden の [hidden]{display:none}（UAスタイル）より
+     クラス側（作者スタイル）が優先されて表示され続けてしまうため、
+     hidden を常に最優先にする */
+  [hidden] { display: none !important; }
 
   .mono-label {
     font-family: var(--font-mono); font-size: 11px; font-weight: 600;
@@ -103,7 +117,8 @@
     margin: 0; font-size: 23px; font-weight: 700; letter-spacing: -.01em;
   }
 
-  .lead { color: var(--ink-2); margin: 12px 0 28px; max-width: 52ch; }
+  .lead { color: var(--ink-2); margin: 12px 0 28px; max-width: 52ch; transition: max-width 320ms var(--ease); }
+  .page.wide .lead { max-width: 68ch; }
 
   .card {
     background: var(--surface); border: 1px solid var(--line);
@@ -190,7 +205,7 @@
   .alert {
     display: flex; gap: 11px; align-items: flex-start;
     padding: 12px 14px; border-radius: var(--r-md); border: 1px solid;
-    margin-top: 20px; font-size: 14px;
+    font-size: 14px;
   }
   .alert svg { width: 18px; height: 18px; flex: none; margin-top: 1px; }
   .alert.success { background: var(--signal-wash); border-color: var(--signal-line); color: var(--signal-ink); }
@@ -222,7 +237,7 @@
 </style>
 </head>
 <body>
-  <div class="page">
+  <div class="page" id="page">
     <span class="mono-label">CAD UTILITY</span>
     <div class="tool-header" style="margin-top: 6px">
       <div class="ic">
@@ -239,84 +254,88 @@
 
     <p class="lead">日本語（漢字・ひらがな・カタカナ）を含む文字を、ブラウザだけで3Dモデル（STEP / STL）に変換・立体化します。フォントも自動で用意されるので、そのまま生成できます。</p>
 
-    <div class="card">
-      <div class="field">
-        <label for="text">テキスト</label>
-        <input type="text" id="text" value="製造AB" />
-      </div>
-
-      <details class="advanced">
-        <summary>詳細設定（フォント・サイズ・分割）</summary>
-        <div class="advanced-body">
-          <div class="field">
-            <div class="field-row">
-              <label for="font">フォントファイル</label>
-              <span class="help-wrap">
-                <span class="help" tabindex="0">?</span>
-                <span class="help-tip">省略時は Noto Sans JP が CDN から自動取得されます</span>
-              </span>
-            </div>
-            <input type="file" id="font" accept=".ttf,.otf" />
-            <span class="hint">.ttf / .otf、省略可</span>
-          </div>
-
-          <div class="row">
-            <div class="field">
-              <div class="field-row">
-                <label for="fontSize">フォントサイズ</label>
-                <span class="help-wrap">
-                  <span class="help" tabindex="0">?</span>
-                  <span class="help-tip">文字の高さ（mm）</span>
-                </span>
-              </div>
-              <input type="number" id="fontSize" value="10" min="1" />
-            </div>
-            <div class="field">
-              <div class="field-row">
-                <label for="depth">押し出し深さ</label>
-                <span class="help-wrap">
-                  <span class="help" tabindex="0">?</span>
-                  <span class="help-tip">立体にする厚み（mm）</span>
-                </span>
-              </div>
-              <input type="number" id="depth" value="3" min="0.1" step="0.1" />
-            </div>
-          </div>
-
-          <div class="field" style="margin-top: 16px">
-            <label class="checkbox-row">
-              <input type="checkbox" id="separate" />
-              文字ごとに分割する
-              <span class="help-wrap">
-                <span class="help" tabindex="0">?</span>
-                <span class="help-tip">1文字ずつ独立したパーツとして出力します（STEP はアセンブリ）</span>
-              </span>
-            </label>
-          </div>
+    <div class="workspace" id="workspace">
+      <div class="card">
+        <div class="field">
+          <label for="text">テキスト</label>
+          <input type="text" id="text" value="製造AB" />
         </div>
-      </details>
 
-      <button id="generate" class="btn btn-primary">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16 2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143z"/></svg>
-        生成する
-      </button>
+        <details class="advanced">
+          <summary>詳細設定（フォント・サイズ・分割）</summary>
+          <div class="advanced-body">
+            <div class="field">
+              <div class="field-row">
+                <label for="font">フォントファイル</label>
+                <span class="help-wrap">
+                  <span class="help" tabindex="0">?</span>
+                  <span class="help-tip">省略時は Noto Sans JP が CDN から自動取得されます</span>
+                </span>
+              </div>
+              <input type="file" id="font" accept=".ttf,.otf" />
+              <span class="hint">.ttf / .otf、省略可</span>
+            </div>
 
-      <div id="status"></div>
+            <div class="row">
+              <div class="field">
+                <div class="field-row">
+                  <label for="fontSize">フォントサイズ</label>
+                  <span class="help-wrap">
+                    <span class="help" tabindex="0">?</span>
+                    <span class="help-tip">文字の高さ（mm）</span>
+                  </span>
+                </div>
+                <input type="number" id="fontSize" value="10" min="1" />
+              </div>
+              <div class="field">
+                <div class="field-row">
+                  <label for="depth">押し出し深さ</label>
+                  <span class="help-wrap">
+                    <span class="help" tabindex="0">?</span>
+                    <span class="help-tip">立体にする厚み（mm）</span>
+                  </span>
+                </div>
+                <input type="number" id="depth" value="3" min="0.1" step="0.1" />
+              </div>
+            </div>
 
-      <div id="viewer-wrap" class="viewer-wrap" hidden>
-        <span class="mono-label">プレビュー（ドラッグで回転・スクロールでズーム）</span>
-        <div id="viewer" class="viewer"></div>
+            <div class="field" style="margin-top: 16px">
+              <label class="checkbox-row">
+                <input type="checkbox" id="separate" />
+                文字ごとに分割する
+                <span class="help-wrap">
+                  <span class="help" tabindex="0">?</span>
+                  <span class="help-tip">1文字ずつ独立したパーツとして出力します（STEP はアセンブリ）</span>
+                </span>
+              </label>
+            </div>
+          </div>
+        </details>
+
+        <button id="generate" class="btn btn-primary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16 2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143z"/></svg>
+          生成する
+        </button>
       </div>
 
-      <div id="downloads" class="downloads" hidden>
-        <button id="downloadStep" class="btn btn-secondary">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-          STEP をダウンロード
-        </button>
-        <button id="downloadStl" class="btn btn-secondary">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-          STL をダウンロード
-        </button>
+      <div class="card result-panel" id="result-panel" hidden>
+        <div id="status"></div>
+
+        <div id="viewer-wrap" class="viewer-wrap" hidden>
+          <span class="mono-label">プレビュー（ドラッグで回転・スクロールでズーム）</span>
+          <div id="viewer" class="viewer"></div>
+        </div>
+
+        <div id="downloads" class="downloads" hidden>
+          <button id="downloadStep" class="btn btn-secondary">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            STEP をダウンロード
+          </button>
+          <button id="downloadStl" class="btn btn-secondary">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            STL をダウンロード
+          </button>
+        </div>
       </div>
     </div>
 
@@ -331,11 +350,22 @@
     import { STLLoader } from 'three/addons/loaders/STLLoader.js'
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 
+    const pageEl = document.getElementById('page')
+    const workspaceEl = document.getElementById('workspace')
+    const resultPanelEl = document.getElementById('result-panel')
     const statusEl = document.getElementById('status')
     const viewerWrapEl = document.getElementById('viewer-wrap')
     const viewerEl = document.getElementById('viewer')
     const downloadsEl = document.getElementById('downloads')
     const generateBtn = document.getElementById('generate')
+
+    // 初回の「生成する」クリックで右側に結果パネルを出現させる（以後は出したまま）
+    function revealResultPanel() {
+      if (!resultPanelEl.hidden) return
+      pageEl.classList.add('wide')
+      workspaceEl.classList.add('two-col')
+      resultPanelEl.hidden = false
+    }
 
     let currentResult = null
 
@@ -428,10 +458,12 @@
       camera.updateProjectionMatrix()
       controls.target.set(0, 0, 0)
       controls.update()
+      window.__debug = { renderer, scene, camera, mesh, geometry }
     }
 
     // ---- 生成フロー ----
     function renderLoading(hasFont) {
+      revealResultPanel()
       viewerWrapEl.hidden = true
       downloadsEl.hidden = true
       statusEl.innerHTML = `
