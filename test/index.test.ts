@@ -52,4 +52,12 @@ describe('textToCAD', () => {
     const bad = new ArrayBuffer(8)
     await expect(textToCAD('A', { font: bad })).rejects.toThrow()
   })
+
+  // font 未指定時は CDN からデフォルトフォント(Noto Sans JP)を取得する。
+  // ネットワークアクセスが必要なため他のテストより長めのタイムアウトを設定
+  it('font を省略した場合デフォルトフォントで変換できる', async () => {
+    const result = await textToCAD('AB')
+    expect(result.step.byteLength).toBeGreaterThan(0)
+    expect(result.stl.byteLength).toBeGreaterThan(0)
+  }, 60_000)
 })

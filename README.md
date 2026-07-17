@@ -8,6 +8,7 @@
 - 単一ソリッド（`separate: false`）と、文字ごとのバラソリッド + アセンブリ STEP（`separate: true`）の両方に対応
 - Node.js（ESM / CJS）とブラウザの両方で同じ API が使える Universal ライブラリ
 - OpenCascade (WASM) の初期化はライブラリ内部で自動的に行われる（呼び出し側での `setOC` 等のセットアップ不要）
+- `font` は省略可能。省略時は CDN からデフォルトフォント（Noto Sans JP）を自動取得
 
 ## インストール
 
@@ -68,7 +69,7 @@ writeFileSync('./output.stl', Buffer.from(result.stl))
 | 引数 | 型 | 説明 |
 |------|-----|------|
 | `text` | `string` | 変換するテキスト。空文字・スペースのみの文字列は Error を throw |
-| `options.font` | `ArrayBuffer` | **必須**。TTF フォントの ArrayBuffer（OTF も可だが CJK は TTF 推奨） |
+| `options.font` | `ArrayBuffer` | TTF フォントの ArrayBuffer（OTF も可だが CJK は TTF 推奨）。省略時は CDN からデフォルトフォント（Noto Sans JP）を取得する（要ネットワークアクセス） |
 | `options.fontSize` | `number` | フォントサイズ (mm)。デフォルト `10` |
 | `options.depth` | `number` | 押し出し深さ (mm)。デフォルト `3` |
 | `options.separate` | `boolean` | `true` = 文字ごとにバラソリッド（STEP はアセンブリ、STL は Union）。`false` = 全文字を単一ソリッドとして生成。デフォルト `false` |
@@ -84,6 +85,7 @@ writeFileSync('./output.stl', Buffer.from(result.stl))
 
 ## フォントについて
 
+- `font` を省略すると、初回呼び出し時に [jsDelivr](https://www.jsdelivr.com/)（GitHub `google/fonts` リポジトリのミラー）から Noto Sans JP（可変フォント、約10MB）を取得し、プロセス/ページ内でキャッシュします。ネットワークアクセスができない環境や、起動を高速化したい場合、独自フォントを使いたい場合は `font` を明示的に指定してください。
 - **TTF 形式を推奨**します。OTF（CFF）の CJK グリフも動作しますが、内部で使われている opentype.js が v1.3.4 に固定されているため TTF の方が安全です。
 - 存在しないフォントファミリー名を指定してのフォールバック（サイレントに `default` フォントへ切り替わる挙動）は本ライブラリ側で検知し、ロード失敗時は明示的に Error を throw します。
 - 同一の `ArrayBuffer` インスタンスを複数回 `textToCAD` に渡した場合はフォントの再登録をスキップしますが、内容が同じでも別インスタンスの `ArrayBuffer`（例: 毎回 `readFileSync` し直す等）は別フォントとして再登録されます。大量に繰り返し呼び出すサーバー用途では、読み込んだ `ArrayBuffer` を使い回すことを推奨します。

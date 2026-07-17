@@ -3,6 +3,7 @@ import { textToSolid } from './solid'
 import { toStepBuffer, toStlBuffer } from './exporter'
 import { downloadBuffer } from './download'
 import { initOCC } from './occLoader'
+import { loadDefaultFont } from './defaultFont'
 import type { TextToCADOptions, TextToCADResult } from './types'
 
 let occPromise: Promise<void> | null = null
@@ -23,15 +24,16 @@ function ensureOCC(): Promise<void> {
 
 export async function textToCAD(
   text: string,
-  options: TextToCADOptions,
+  options: TextToCADOptions = {},
 ): Promise<TextToCADResult> {
   if (!text) throw new Error('text must not be empty')
 
   const { font, fontSize = 10, depth = 3, separate = false } = options
 
-  await ensureOCC()
+  // OCC 初期化とデフォルトフォント取得は互いに独立しているため並行実行する
+  const [fontBuffer] = await Promise.all([font ?? loadDefaultFont(), ensureOCC()])
 
-  const solid = await textToSolid(text, font, fontSize, depth, separate)
+  const solid = await textToSolid(text, fontBuffer, fontSize, depth, separate)
 
   const [stepBuffer, stlBuffer] = await Promise.all([
     toStepBuffer(solid),

@@ -1,6 +1,10 @@
 export interface TextToCADOptions {
-  /** TTF フォントの ArrayBuffer（必須）。OTF も可だが TTF 推奨 */
-  font: ArrayBuffer
+  /**
+   * TTF フォントの ArrayBuffer（OTF も可だが TTF 推奨）。
+   * 省略した場合はデフォルトフォント（Noto Sans JP）を CDN から取得する。
+   * ネットワークアクセスが必要になるため、可能な限り明示的に指定することを推奨。
+   */
+  font?: ArrayBuffer
 
   /** フォントサイズ（mm）。デフォルト: 10 */
   fontSize?: number

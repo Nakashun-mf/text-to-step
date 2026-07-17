@@ -36,12 +36,12 @@
 </head>
 <body>
   <h1>text-to-step サンプル</h1>
-  <p>TTF/OTF フォントを選択し、テキストを入力して「生成」を押してください。</p>
+  <p>テキストを入力して「生成」を押してください。フォントファイルは省略可能です（省略時は CDN からデフォルトフォント Noto Sans JP を取得します）。</p>
 
   <label for="text">テキスト</label>
   <input type="text" id="text" value="製造AB" />
 
-  <label for="font">フォントファイル (.ttf / .otf)</label>
+  <label for="font">フォントファイル (.ttf / .otf、省略可)</label>
   <input type="file" id="font" accept=".ttf,.otf" />
 
   <div class="row">
@@ -86,18 +86,15 @@
       const depth = Number(document.getElementById('depth').value)
       const separate = document.getElementById('separate').checked
 
-      if (!fontFile) {
-        statusEl.textContent = 'TTF/OTF フォントを選択してください'
-        return
-      }
-
       downloadsEl.style.display = 'none'
       currentResult = null
-      statusEl.textContent = '生成中（初回は WASM ロードのため数秒かかります）...'
+      statusEl.textContent = fontFile
+        ? '生成中（初回は WASM ロードのため数秒かかります）...'
+        : '生成中（初回は WASM ロードとデフォルトフォントのダウンロードのため時間がかかります）...'
 
       try {
-        const fontBuffer = await fontFile.arrayBuffer()
-        const result = await textToCAD(text, { font: fontBuffer, fontSize, depth, separate })
+        const font = fontFile ? await fontFile.arrayBuffer() : undefined
+        const result = await textToCAD(text, { font, fontSize, depth, separate })
         currentResult = result
         statusEl.textContent =
           `完了: STEP ${result.step.byteLength.toLocaleString()} bytes / ` +
